@@ -1,41 +1,36 @@
-import os
-import tempfile
-from functools import reduce
+from pymongo import MongoClient
+from bson.objectid import ObjectId
 
-from tinydb import TinyDB, Query
+mongo_uri = "mongodb://mongo:27017/"
+database_name = "students_db"
+collection_name = "students"
 
-db_dir_path = tempfile.gettempdir()
-db_file_path = os.path.join(db_dir_path, "students.json")
-student_db = TinyDB(db_file_path)
+client = MongoClient(mongo_uri)
+db = client[database_name]
+student_collection = db[collection_name]
 
 
 def add(student=None):
-    queries = []
-    query = Query()
-    queries.append(query.first_name == student.first_name)
-    queries.append(query.last_name == student.last_name)
-    query = reduce(lambda a, b: a & b, queries)
-    res = student_db.search(query)
-    if res:
+    query = {"first_name": student.first_name, "last_name": student.last_name}
+    if student_collection.find_one(query):
         return 'already exists', 409
 
-    doc_id = student_db.insert(student.to_dict())
-    student.student_id = doc_id
-    return student.student_id
+    result = student_collection.insert_one(student.to_dict())
+    student.student_id = str(result.inserted_id)
+    return student.student_id, 200
 
 
 def get_by_id(student_id=None, subject=None):
-    student = student_db.get(doc_id=int(student_id))
+    student = student_collection.find_one({"_id": ObjectId(student_id)})
     if not student:
-        return 'not found', 404
-    student['student_id'] = student_id
-    print(student)
+        return 'not found'
+    student['student_id'] = str(student['_id'])
+    del student['_id']  # Removing _id as it's not JSON serializable
     return student
 
 
 def delete(student_id=None):
-    student = student_db.get(doc_id=int(student_id))
-    if not student:
-        return 'not found', 404
-    student_db.remove(doc_ids=[int(student_id)])
+    result = student_collection.delete_one({"_id": ObjectId(student_id)})
+    if result.deleted_count == 0:
+        return 'not found'
     return student_id
