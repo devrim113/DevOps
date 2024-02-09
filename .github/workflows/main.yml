@@ -3,7 +3,7 @@ name: Build Test and push
 on: [push]
 env:
   IMAGE_NAME: student_service
-  REPO_NAME: python-flask-server-generated
+  REPO_NAME: devrim113
 
 
 jobs:
